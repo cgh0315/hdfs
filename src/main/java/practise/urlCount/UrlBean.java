@@ -1,12 +1,12 @@
 package practise.urlCount;
 
-import org.apache.hadoop.io.Writable;
+import org.apache.hadoop.io.WritableComparable;
 
 import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
 
-public class UrlBean implements Writable {
+public class UrlBean implements WritableComparable<UrlBean> {
     String url;
     int mount;
 
@@ -53,5 +53,10 @@ public class UrlBean implements Writable {
                 "url='" + url + '\'' +
                 ", mount=" + mount +
                 '}';
+    }
+
+    @Override
+    public int compareTo(UrlBean o) {
+        return o.getMount()-this.mount==0?this.url.compareTo(o.getUrl()):o.getMount()-this.mount;
     }
 }
