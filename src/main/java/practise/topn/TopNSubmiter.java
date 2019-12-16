@@ -15,45 +15,64 @@ import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.util.Iterator;
-import java.util.Properties;
-import java.util.TreeMap;
+import java.util.*;
 
 public class TopNSubmiter {
 
-    TreeMap<TopNBean,Object> treeMap = new TreeMap<>();
-
     public static class TopNMapper extends Mapper<LongWritable, Text, Text, IntWritable>{
+
         @Override
-        protected void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {
-            String s = value.toString();
-            String[] s1 = s.split(" ");
-            context.write(new Text(s1[0]),new IntWritable(1));
+        protected void map(LongWritable key, Text value, Mapper<LongWritable, Text, Text, IntWritable>.Context context)
+                throws IOException, InterruptedException {
+            String line = value.toString();
+            String[] split = line.split(" ");
+            context.write(new Text(split[1]), new IntWritable(1));
         }
+
     }
 
-    public static class TopNReducer extends Reducer<Text,IntWritable,Text,IntWritable>{
+    public static class TopNReducer extends Reducer<Text, IntWritable, Text, IntWritable>{
+
+        TreeMap<TopNBean, Object> treeMap = new TreeMap<>();
+
         @Override
-        protected void reduce(Text key, Iterable<IntWritable> values, Context context) throws IOException, InterruptedException {
-            Iterator<IntWritable> iterator = values.iterator();
-            int sum = 0;
-            while (iterator.hasNext()){
-                IntWritable next = iterator.next();
-                sum += next.get();
+        protected void reduce(Text key, Iterable<IntWritable> values,
+                              Reducer<Text, IntWritable, Text, IntWritable>.Context context) throws IOException, InterruptedException {
+            int count = 0;
+            for (IntWritable value : values) {
+                count += value.get();
+            }
+            TopNBean pageCount = new TopNBean(key.toString(), count);
+            treeMap.put(pageCount,null);
+
+        }
+
+
+        @Override
+        protected void cleanup(Context context)
+                throws IOException, InterruptedException {
+            Configuration conf = context.getConfiguration();
+            int topn = conf.getInt("topN", 5);
+
+
+            Set<Map.Entry<TopNBean, Object>> entrySet = treeMap.entrySet();
+            int i= 0;
+
+            for (Map.Entry<TopNBean, Object> entry : entrySet) {
+                context.write(new Text(entry.getKey().getUrl()), new IntWritable(entry.getKey().getMount()));
+                i++;
+                if(i==topn) return;
             }
 
-            context.write(key,new IntWritable(sum));
-        }
-
-        @Override
-        protected void cleanup(Context context) throws IOException, InterruptedException {
 
         }
+
+
     }
 
     public static void main(String[] args) throws IOException, URISyntaxException, ClassNotFoundException, InterruptedException {
         Configuration conf = new Configuration();
-        conf.set("fs.defaultFS","hdfs://hdp-01:/9000");
+        conf.set("fs.defaultFS","hdfs://hdp-01:9000");
         conf.set("mapreduce.framework.name","yarn");
         conf.set("yarn.resourcemanager.hostname","hdp-01");
         conf.set("mapreduce.app-submission.cross-platform","true");
@@ -68,7 +87,7 @@ public class TopNSubmiter {
         job.setReducerClass(TopNReducer.class);
 
         job.setMapOutputKeyClass(Text.class);
-        job.setMapOutputKeyClass(IntWritable.class);
+        job.setMapOutputValueClass(IntWritable.class);
 
         job.setOutputKeyClass(Text.class);
         job.setOutputValueClass(IntWritable.class);
