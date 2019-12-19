@@ -92,6 +92,7 @@ public class TopNSubmiter {
         job.setOutputKeyClass(Text.class);
         job.setOutputValueClass(IntWritable.class);
 
+
         FileSystem root = FileSystem.get(new URI("hdfs://hdp-01:9000"), conf, "root");
         boolean exists = root.exists(new Path("/TopN/output/"));
         if(exists){
